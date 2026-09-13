@@ -1,0 +1,18 @@
+package com.alvexo.adminportal.entity;
+
+public enum ServiceType {
+    GENERAL_REPAIR,
+    OIL_CHANGE,
+    BRAKE_SERVICE,
+    TIRE_SERVICE,
+    ENGINE_DIAGNOSTIC,
+    TRANSMISSION_SERVICE,
+    ELECTRICAL_REPAIR,
+    AC_SERVICE,
+    INSPECTION,
+    MAINTENANCE,
+    BODYWORK,
+    OTHER,
+    GENERAL_SERVICE,
+    EXPRESS_SERVICE
+}

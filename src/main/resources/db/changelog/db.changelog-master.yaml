@@ -1,0 +1,5 @@
+databaseChangeLog:
+  # No changesets yet — this service doesn't own any tables until the first
+  # admin/finance entity is built. Add changes under db/changelog/changes/
+  # and include them here, following vehicle-service-booking-api's pattern.
+  []
