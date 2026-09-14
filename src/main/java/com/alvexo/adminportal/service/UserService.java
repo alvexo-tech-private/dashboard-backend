@@ -2,6 +2,7 @@ package com.alvexo.adminportal.service;
 
 import com.alvexo.adminportal.dto.MechanicSummaryDto;
 import com.alvexo.adminportal.dto.PagedResponse;
+import com.alvexo.adminportal.dto.SalesAgentSummaryDto;
 import com.alvexo.adminportal.dto.VehicleUserSummaryDto;
 import com.alvexo.adminportal.entity.User;
 import com.alvexo.adminportal.entity.UserRole;
@@ -31,6 +32,11 @@ public class UserService {
             "emailVerified", "mobileVerified", "active", "createdAt"
     );
 
+    private static final Set<String> SALES_AGENT_SORT_FIELDS = Set.of(
+            "firstName", "lastName", "email", "city", "referralCode",
+            "totalReferrals", "totalBonusEarned", "active", "createdAt"
+    );
+
     private final UserRepository userRepository;
 
     public PagedResponse<MechanicSummaryDto> getMechanics(int page, int size, String search, String sortBy, String sortDir) {
@@ -43,6 +49,12 @@ public class UserService {
         Pageable pageable = buildPageable(page, size, sortBy, sortDir, VEHICLE_USER_SORT_FIELDS);
         Page<User> result = userRepository.searchVehicleUsers(UserRole.VEHICLE_USER, normalize(search), pageable);
         return PagedResponse.from(result, this::toVehicleUserSummaryDto);
+    }
+
+    public PagedResponse<SalesAgentSummaryDto> getSalesAgents(int page, int size, String search, String sortBy, String sortDir) {
+        Pageable pageable = buildPageable(page, size, sortBy, sortDir, SALES_AGENT_SORT_FIELDS);
+        Page<User> result = userRepository.searchSalesAgents(UserRole.SALES_REPRESENTATIVE, normalize(search), pageable);
+        return PagedResponse.from(result, this::toSalesAgentSummaryDto);
     }
 
     private Pageable buildPageable(int page, int size, String sortBy, String sortDir, Set<String> allowedSortFields) {
@@ -86,6 +98,22 @@ public class UserService {
                 .state(user.getState())
                 .emailVerified(user.getEmailVerified())
                 .mobileVerified(user.getMobileVerified())
+                .active(user.getActive())
+                .createdAt(user.getCreatedAt())
+                .build();
+    }
+
+    private SalesAgentSummaryDto toSalesAgentSummaryDto(User user) {
+        return SalesAgentSummaryDto.builder()
+                .id(user.getId())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .mobileNumber(user.getMobileNumber())
+                .city(user.getCity())
+                .referralCode(user.getReferralCode())
+                .totalReferrals(user.getTotalReferrals())
+                .totalBonusEarned(user.getTotalBonusEarned())
                 .active(user.getActive())
                 .createdAt(user.getCreatedAt())
                 .build();

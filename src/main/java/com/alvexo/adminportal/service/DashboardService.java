@@ -2,6 +2,7 @@ package com.alvexo.adminportal.service;
 
 import com.alvexo.adminportal.dto.DashboardSummaryDto;
 import com.alvexo.adminportal.entity.UserRole;
+import com.alvexo.adminportal.repository.MechanicConfigurationSettingsRepository;
 import com.alvexo.adminportal.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 public class DashboardService {
 
     private final UserRepository userRepository;
+    private final MechanicConfigurationSettingsRepository mechanicConfigurationSettingsRepository;
 
     public DashboardSummaryDto getSummary() {
         return DashboardSummaryDto.builder()
@@ -18,6 +20,12 @@ public class DashboardService {
                 .deletedRiders(userRepository.countByRoleAndDeletedTrue(UserRole.VEHICLE_USER))
                 .registeredWorkshops(userRepository.countByRoleAndDeletedFalse(UserRole.MECHANIC))
                 .deletedWorkshops(userRepository.countByRoleAndDeletedTrue(UserRole.MECHANIC))
+                .suspendedWorkshops(userRepository.countByRoleAndActiveFalseAndDeletedFalse(UserRole.MECHANIC))
+                .pickupDropEnabledWorkshops(mechanicConfigurationSettingsRepository.countPickupDropEnabledForActiveMechanics())
+                .advancePaymentEnabledWorkshops(mechanicConfigurationSettingsRepository.countAdvancePaymentEnabledForActiveMechanics())
+                .registeredSalesAgents(userRepository.countByRoleAndDeletedFalse(UserRole.SALES_REPRESENTATIVE))
+                .suspendedSalesAgents(userRepository.countByRoleAndActiveFalseAndDeletedFalse(UserRole.SALES_REPRESENTATIVE))
+                .deletedSalesAgents(userRepository.countByRoleAndDeletedTrue(UserRole.SALES_REPRESENTATIVE))
                 .build();
     }
 }
