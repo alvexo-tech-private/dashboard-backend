@@ -1,5 +1,9 @@
 databaseChangeLog:
-  # No changesets yet — this service doesn't own any tables until the first
-  # admin/finance entity is built. Add changes under db/changelog/changes/
-  # and include them here, following vehicle-service-booking-api's pattern.
-  []
+  - include:
+      file: db/changelog/changes/001-create-admin-users.yaml
+  - include:
+      file: db/changelog/changes/002-seed-admin-users.yaml
+  - include:
+      file: db/changelog/changes/003-create-audit-log.yaml
+  - include:
+      file: db/changelog/changes/004-create-workshop-registration-requests.yaml

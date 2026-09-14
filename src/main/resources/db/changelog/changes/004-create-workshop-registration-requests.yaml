@@ -1,0 +1,92 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-create-workshop-registration-requests
+      author: system
+      comment: >
+        ADMIN-US-03 — one tracking row per workshop (mechanic) User, synced
+        lazily on read since mechanic registration happens entirely in the
+        sibling vehicle-service-booking-api and cannot insert here directly.
+      changes:
+        - createTable:
+            tableName: workshop_registration_requests
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: mechanic_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    unique: true
+
+              - column:
+                  name: status
+                  type: VARCHAR(30)
+                  defaultValue: PENDING
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: registered_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: decision_reason
+                  type: TEXT
+
+              - column:
+                  name: decided_by_admin_id
+                  type: BIGINT
+
+              - column:
+                  name: decided_at
+                  type: TIMESTAMP
+
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: workshop_registration_requests
+            baseColumnNames: mechanic_id
+            constraintName: fk_workshop_reg_req_mechanic
+            referencedTableName: users
+            referencedColumnNames: id
+
+        - addForeignKeyConstraint:
+            baseTableName: workshop_registration_requests
+            baseColumnNames: decided_by_admin_id
+            constraintName: fk_workshop_reg_req_admin
+            referencedTableName: admin_users
+            referencedColumnNames: id
+
+        - createIndex:
+            indexName: idx_workshop_reg_req_status_registered_at
+            tableName: workshop_registration_requests
+            columns:
+              - column:
+                  name: status
+              - column:
+                  name: registered_at
+
+      rollback:
+        - dropTable:
+            tableName: workshop_registration_requests

@@ -1,0 +1,39 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-seed-admin-users
+      author: system
+      comment: >
+        Bootstrap one login-capable account per role, since there is no
+        admin-user-creation UI yet (that's ADMIN-US-29). DEV-ONLY TEMP
+        PASSWORD for all three accounts: "Admin@12345" — rotate before any
+        shared/deployed environment; the value below is only its BCrypt hash.
+      changes:
+        - insert:
+            tableName: admin_users
+            columns:
+              - column: { name: email, value: superadmin@alvexo.com }
+              - column: { name: password_hash, value: "$2b$10$gcuFyTBv.jioJhys9vUo1udEvaalB/PxKrCx1n0jQ9dr2QK1RVwWm" }
+              - column: { name: full_name, value: "Super Admin" }
+              - column: { name: role, value: SUPER_ADMIN }
+              - column: { name: status, value: ACTIVE }
+        - insert:
+            tableName: admin_users
+            columns:
+              - column: { name: email, value: finance.admin@alvexo.com }
+              - column: { name: password_hash, value: "$2b$10$gcuFyTBv.jioJhys9vUo1udEvaalB/PxKrCx1n0jQ9dr2QK1RVwWm" }
+              - column: { name: full_name, value: "Finance Admin" }
+              - column: { name: role, value: FINANCE_ADMIN }
+              - column: { name: status, value: ACTIVE }
+        - insert:
+            tableName: admin_users
+            columns:
+              - column: { name: email, value: ops.admin@alvexo.com }
+              - column: { name: password_hash, value: "$2b$10$gcuFyTBv.jioJhys9vUo1udEvaalB/PxKrCx1n0jQ9dr2QK1RVwWm" }
+              - column: { name: full_name, value: "Operations Admin" }
+              - column: { name: role, value: OPERATIONS_ADMIN }
+              - column: { name: status, value: ACTIVE }
+
+      rollback:
+        - delete:
+            tableName: admin_users
+            where: "email IN ('superadmin@alvexo.com','finance.admin@alvexo.com','ops.admin@alvexo.com')"
