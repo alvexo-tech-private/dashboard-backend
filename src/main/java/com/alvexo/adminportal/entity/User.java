@@ -117,6 +117,12 @@ public class User {
     @Column(name = "total_bonus_earned", precision = 10, scale = 2)
     private BigDecimal totalBonusEarned;
 
+    @Column(nullable = false)
+    private Boolean deleted;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Column(name = "created_at", updatable = false, insertable = false)
     private LocalDateTime createdAt;
 
