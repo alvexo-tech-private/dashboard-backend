@@ -7,3 +7,5 @@ databaseChangeLog:
       file: db/changelog/changes/003-create-audit-log.yaml
   - include:
       file: db/changelog/changes/004-create-workshop-registration-requests.yaml
+  - include:
+      file: db/changelog/changes/005-create-workshop-verifications.yaml

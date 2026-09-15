@@ -1,0 +1,105 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-create-workshop-verifications
+      author: system
+      comment: >
+        ADMIN-US-06 — one tracking row per (workshop, verification type)
+        pair, synced lazily on read for the same reason as
+        workshop_registration_requests: mechanic registration happens
+        entirely in the sibling vehicle-service-booking-api.
+      changes:
+        - createTable:
+            tableName: workshop_verifications
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: mechanic_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: verification_type
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: status
+                  type: VARCHAR(30)
+                  defaultValue: PENDING
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: requested_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: decision_reason
+                  type: TEXT
+
+              - column:
+                  name: decided_by_admin_id
+                  type: BIGINT
+
+              - column:
+                  name: decided_at
+                  type: TIMESTAMP
+
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - addUniqueConstraint:
+            tableName: workshop_verifications
+            columnNames: mechanic_id, verification_type
+            constraintName: uq_workshop_verification_mechanic_type
+
+        - addForeignKeyConstraint:
+            baseTableName: workshop_verifications
+            baseColumnNames: mechanic_id
+            constraintName: fk_workshop_verification_mechanic
+            referencedTableName: users
+            referencedColumnNames: id
+
+        - addForeignKeyConstraint:
+            baseTableName: workshop_verifications
+            baseColumnNames: decided_by_admin_id
+            constraintName: fk_workshop_verification_admin
+            referencedTableName: admin_users
+            referencedColumnNames: id
+
+        - createIndex:
+            indexName: idx_workshop_verification_type_status_requested_at
+            tableName: workshop_verifications
+            columns:
+              - column:
+                  name: verification_type
+              - column:
+                  name: status
+              - column:
+                  name: requested_at
+
+      rollback:
+        - dropTable:
+            tableName: workshop_verifications
