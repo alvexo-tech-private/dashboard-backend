@@ -31,3 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local secrets ###
+# Holds real DB credentials / JWT secret for local dev — never commit it.
+# application-prod.properties is fine to track: it only reads from env vars.
+src/main/resources/application.properties
