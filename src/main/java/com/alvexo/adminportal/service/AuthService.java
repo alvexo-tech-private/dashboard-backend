@@ -17,10 +17,12 @@ import java.time.LocalDateTime;
 public class AuthService {
 
     private static final String INVALID_CREDENTIALS_MESSAGE = "Invalid email or password.";
+    private static final String INVALID_CURRENT_PASSWORD_MESSAGE = "Current password is incorrect.";
 
     private final AdminUserRepository adminUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final AuditLogService auditLogService;
 
     public LoginResponseDto login(String email, String password) {
         AdminUser admin = adminUserRepository.findByEmailIgnoreCase(email)
@@ -48,5 +50,20 @@ public class AuthService {
                         .role(admin.getRole())
                         .build())
                 .build();
+    }
+
+    public void changePassword(Long adminId, String currentPassword, String newPassword) {
+        AdminUser admin = adminUserRepository.findById(adminId)
+                .orElseThrow(() -> ApiException.unauthorized(INVALID_CREDENTIALS_MESSAGE));
+
+        if (!passwordEncoder.matches(currentPassword, admin.getPasswordHash())) {
+            throw ApiException.badRequest(INVALID_CURRENT_PASSWORD_MESSAGE);
+        }
+
+        admin.setPasswordHash(passwordEncoder.encode(newPassword));
+        adminUserRepository.save(admin);
+
+        auditLogService.record("AdminUser", admin.getId(), admin.getId(), null, null,
+                "PASSWORD_CHANGED", "Self-service password change.");
     }
 }
