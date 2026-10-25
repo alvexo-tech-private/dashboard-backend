@@ -1,0 +1,146 @@
+databaseChangeLog:
+  # Undoes the columns an earlier version of this changelog added to the
+  # sibling-owned workshop_verifications table. They must go: requested_at is
+  # NOT NULL with no default, and the sibling's own insert
+  # (WorkshopProfileService.getOrCreateVerification) never sets it. Every
+  # changeSet is guarded, so on a database that never had them this is a no-op.
+
+  - changeSet:
+      id: 006-copy-dashboard-rows-to-admin-workshop-verifications
+      author: system
+      comment: >
+        Carries over any (mechanic, type) rows the dashboard already wrote
+        into the sibling table, so queue decisions are not lost. The sibling
+        rows themselves stay in place: with the dashboard columns gone they
+        look exactly like the row the sibling would create itself.
+      preConditions:
+        - onFail: MARK_RAN
+        - columnExists:
+            tableName: workshop_verifications
+            columnName: verification_type
+        - columnExists:
+            tableName: workshop_verifications
+            columnName: status
+        - columnExists:
+            tableName: workshop_verifications
+            columnName: requested_at
+        - columnExists:
+            tableName: workshop_verifications
+            columnName: decision_reason
+        - columnExists:
+            tableName: workshop_verifications
+            columnName: decided_by_admin_id
+        - columnExists:
+            tableName: workshop_verifications
+            columnName: decided_at
+        - columnExists:
+            tableName: workshop_verifications
+            columnName: created_at
+      changes:
+        - sql:
+            sql: >
+              INSERT INTO admin_workshop_verifications
+                (mechanic_id, verification_type, status, requested_at,
+                 decision_reason, decided_by_admin_id, decided_at,
+                 created_at, updated_at)
+              SELECT mechanic_id, verification_type, status, requested_at,
+                     decision_reason, decided_by_admin_id, decided_at,
+                     created_at, updated_at
+              FROM workshop_verifications
+              WHERE verification_type IS NOT NULL
+              ON CONFLICT (mechanic_id, verification_type) DO NOTHING
+      rollback:
+        - sql:
+            sql: SELECT 1
+
+  - changeSet:
+      id: 006-drop-verification-type-from-workshop-verifications
+      author: system
+      preConditions:
+        - onFail: MARK_RAN
+        - columnExists:
+            tableName: workshop_verifications
+            columnName: verification_type
+      changes:
+        - dropColumn:
+            tableName: workshop_verifications
+            columnName: verification_type
+
+  - changeSet:
+      id: 006-drop-status-from-workshop-verifications
+      author: system
+      preConditions:
+        - onFail: MARK_RAN
+        - columnExists:
+            tableName: workshop_verifications
+            columnName: status
+      changes:
+        - dropColumn:
+            tableName: workshop_verifications
+            columnName: status
+
+  - changeSet:
+      id: 006-drop-requested-at-from-workshop-verifications
+      author: system
+      preConditions:
+        - onFail: MARK_RAN
+        - columnExists:
+            tableName: workshop_verifications
+            columnName: requested_at
+      changes:
+        - dropColumn:
+            tableName: workshop_verifications
+            columnName: requested_at
+
+  - changeSet:
+      id: 006-drop-decision-reason-from-workshop-verifications
+      author: system
+      preConditions:
+        - onFail: MARK_RAN
+        - columnExists:
+            tableName: workshop_verifications
+            columnName: decision_reason
+      changes:
+        - dropColumn:
+            tableName: workshop_verifications
+            columnName: decision_reason
+
+  - changeSet:
+      id: 006-drop-decided-by-admin-id-from-workshop-verifications
+      author: system
+      comment: Dropping the column also drops fk_workshop_verification_admin.
+      preConditions:
+        - onFail: MARK_RAN
+        - columnExists:
+            tableName: workshop_verifications
+            columnName: decided_by_admin_id
+      changes:
+        - dropColumn:
+            tableName: workshop_verifications
+            columnName: decided_by_admin_id
+
+  - changeSet:
+      id: 006-drop-decided-at-from-workshop-verifications
+      author: system
+      preConditions:
+        - onFail: MARK_RAN
+        - columnExists:
+            tableName: workshop_verifications
+            columnName: decided_at
+      changes:
+        - dropColumn:
+            tableName: workshop_verifications
+            columnName: decided_at
+
+  - changeSet:
+      id: 006-drop-created-at-from-workshop-verifications
+      author: system
+      preConditions:
+        - onFail: MARK_RAN
+        - columnExists:
+            tableName: workshop_verifications
+            columnName: created_at
+      changes:
+        - dropColumn:
+            tableName: workshop_verifications
+            columnName: created_at

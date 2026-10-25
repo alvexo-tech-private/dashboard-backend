@@ -35,7 +35,7 @@ import java.util.Set;
  * ADMIN-US-06 — Manage Workshop Verification Queue.
  *
  * Mirrors WorkshopRegistrationRequestService's lazy-sync approach: this
- * service owns workshop_verifications, but nothing in the sibling app ever
+ * service owns admin_workshop_verifications, but nothing in the sibling app ever
  * inserts a row here directly, so every read syncs first — one PENDING row
  * per (active mechanic, verification type) pair that doesn't already have
  * one. See WorkshopVerification's Javadoc for why requestedAt is copied

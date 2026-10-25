@@ -14,6 +14,11 @@ import java.time.LocalDateTime;
  * as WorkshopRegistrationRequest: the sibling app's registration flow is
  * the only thing that creates mechanics, and it cannot write here.
  *
+ * Deliberately its own table, not the sibling's `workshop_verifications`:
+ * that one is unique on mechanic_id and the sibling reads it with
+ * findByMechanic() (one row per mechanic), while this needs one row per
+ * (mechanic, verification type).
+ *
  * `requestedAt` is copied from the mechanic's User.createdAt at sync time —
  * there is no separate workshop-initiated "apply for Listed/Trust status"
  * flow to timestamp against, so registration order stands in for queue
@@ -26,7 +31,7 @@ import java.time.LocalDateTime;
  * automated eligibility gate.
  */
 @Entity
-@Table(name = "workshop_verifications", uniqueConstraints = @UniqueConstraint(columnNames = {"mechanic_id", "verification_type"}))
+@Table(name = "admin_workshop_verifications", uniqueConstraints = @UniqueConstraint(columnNames = {"mechanic_id", "verification_type"}))
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
