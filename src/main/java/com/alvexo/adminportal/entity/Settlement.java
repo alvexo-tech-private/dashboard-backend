@@ -9,9 +9,12 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 
-/** Maps to the existing `settlements` table. */
+/**
+ * Maps to the existing `settlements` table, owned by vehicle-service-booking-api.
+ * Since its changeset 072 this is one settlement per completed booking (not one
+ * per workshop per day); mirrors com.alvexo.bookingapp.model.Settlement.
+ */
 @Entity
 @Table(name = "settlements")
 @Data
@@ -28,39 +31,55 @@ public class Settlement {
     @JoinColumn(name = "mechanic_id", nullable = false)
     private User mechanic;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "booking_id", nullable = false, unique = true)
+    private Booking booking;
+
+    @Column(name = "service_completion_date")
+    private LocalDate serviceCompletionDate;
+
     @Column(name = "settlement_date", nullable = false)
     private LocalDate settlementDate;
+
+    @Column(name = "advance_collected", nullable = false, precision = 10, scale = 2)
+    private BigDecimal advanceCollected;
+
+    @Column(name = "advance_handling_fee", nullable = false, precision = 10, scale = 2)
+    private BigDecimal advanceHandlingFee;
 
     @Column(name = "net_pay", nullable = false, precision = 10, scale = 2)
     private BigDecimal netPay;
 
-    @Column(name = "service_reliability_adjustment", nullable = false, precision = 10, scale = 2)
-    private BigDecimal serviceReliabilityAdjustment;
+    @Column(name = "tcs_rate", nullable = false, precision = 5, scale = 4)
+    private BigDecimal tcsRate;
 
-    @Column(name = "settlement_released", nullable = false, precision = 10, scale = 2)
-    private BigDecimal settlementReleased;
+    @Column(name = "tcs_deduction", nullable = false, precision = 10, scale = 2)
+    private BigDecimal tcsDeduction;
+
+    @Column(name = "final_payout", nullable = false, precision = 10, scale = 2)
+    private BigDecimal finalPayout;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 30)
     private SettlementStatus status;
 
-    @Column(name = "transaction_number", length = 50)
-    private String transactionNumber;
+    @Column(name = "expected_settlement_date")
+    private LocalDate expectedSettlementDate;
 
-    @Column(name = "payment_gateway", length = 50)
-    private String paymentGateway;
+    @Column(name = "payout_reference", unique = true, length = 24)
+    private String payoutReference;
 
-    @Column(name = "payment_gateway_reference", length = 100)
-    private String paymentGatewayReference;
+    @Column(name = "payout_date")
+    private LocalDate payoutDate;
 
-    @Column(name = "payment_date")
-    private LocalDate paymentDate;
+    @Column(name = "bank_reference", length = 40)
+    private String bankReference;
 
-    @Column(name = "payment_time")
-    private LocalTime paymentTime;
+    @Column(name = "provider_payout_id", unique = true, length = 64)
+    private String providerPayoutId;
 
-    @Column(name = "payment_status", length = 20)
-    private String paymentStatus;
+    @Column(name = "hold_reason")
+    private String holdReason;
 
     @Column(name = "created_at", updatable = false, insertable = false)
     private LocalDateTime createdAt;

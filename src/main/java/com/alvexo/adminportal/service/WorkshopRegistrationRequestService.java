@@ -6,16 +6,19 @@ import com.alvexo.adminportal.dto.WorkshopRegistrationRequestSummaryDto;
 import com.alvexo.adminportal.entity.AdminUser;
 import com.alvexo.adminportal.entity.Notification;
 import com.alvexo.adminportal.entity.NotificationType;
+import com.alvexo.adminportal.entity.OnboardingDecision;
 import com.alvexo.adminportal.entity.User;
-import com.alvexo.adminportal.entity.UserRole;
-import com.alvexo.adminportal.entity.WorkshopRegistrationRequest;
+import com.alvexo.adminportal.entity.WorkshopOnboarding;
+import com.alvexo.adminportal.entity.WorkshopProfile;
 import com.alvexo.adminportal.entity.WorkshopRegistrationRequestStatus;
+import com.alvexo.adminportal.entity.WorkshopStatus;
 import com.alvexo.adminportal.exception.ApiException;
 import com.alvexo.adminportal.repository.AdminUserRepository;
+import com.alvexo.adminportal.repository.AuditLogRepository;
 import com.alvexo.adminportal.repository.NotificationRepository;
 import com.alvexo.adminportal.repository.ReferralRepository;
-import com.alvexo.adminportal.repository.UserRepository;
-import com.alvexo.adminportal.repository.WorkshopRegistrationRequestRepository;
+import com.alvexo.adminportal.repository.WorkshopOnboardingRepository;
+import com.alvexo.adminportal.repository.WorkshopProfileRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,22 +28,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
  * ADMIN-US-03 — Manage Workshop Registration Requests.
  *
- * Approval semantics (confirmed with the user): a mechanic's `users` row is
- * created immediately active by the sibling app's registration flow, so
- * there is no real "pending, not yet usable" account state to gate.
- * Approve is therefore record-only; Reject is the one real enforcement
- * lever, flipping the mechanic's User.active to false.
+ * A registration request is a workshop's submitted onboarding in the booking
+ * API's own tables (workshop_onboardings + workshop_profiles), so a decision
+ * taken here is what the workshop app's Current Status card and the rider
+ * booking gate see. Request ids are workshop_onboardings ids.
  *
- * Since mechanic registration happens entirely inside the sibling repo
- * (which this service cannot write to for its own table), nothing ever
- * inserts a row into workshop_registration_requests on its own — this
- * service lazily syncs on every read instead.
+ * Decisions mirror the booking API's WorkshopProfileService.recordOnboardingDecision:
+ * the onboarding row records decision/reason/time and the profile status moves
+ * to VERIFIED (Self Listed), REJECTED or IN_PROGRESS (more info needed). A
+ * workshop asked for more info resubmits from the app, which puts it back to
+ * PENDING, so there is no admin-side "mark resubmitted" step.
  */
 @Service
 @RequiredArgsConstructor
@@ -48,133 +51,97 @@ public class WorkshopRegistrationRequestService {
 
     private static final String ENTITY_TYPE = "WORKSHOP_REGISTRATION_REQUEST";
     private static final int MAX_PAGE_SIZE = 100;
-    private static final Set<String> SORT_FIELDS = Set.of("registeredAt", "status", "id");
+    // API sort field -> WorkshopOnboarding property. Status is derived, so it isn't sortable.
+    private static final Map<String, String> SORT_FIELDS = Map.of("registeredAt", "submittedAt", "id", "id");
     private static final Set<WorkshopRegistrationRequestStatus> TERMINAL_STATUSES =
             Set.of(WorkshopRegistrationRequestStatus.APPROVED, WorkshopRegistrationRequestStatus.REJECTED);
 
-    private final WorkshopRegistrationRequestRepository workshopRegistrationRequestRepository;
-    private final UserRepository userRepository;
+    private final WorkshopOnboardingRepository workshopOnboardingRepository;
+    private final WorkshopProfileRepository workshopProfileRepository;
     private final ReferralRepository referralRepository;
     private final AdminUserRepository adminUserRepository;
+    private final AuditLogRepository auditLogRepository;
     private final NotificationRepository notificationRepository;
     private final AuditLogService auditLogService;
 
-    @Transactional
+    @Transactional(readOnly = true)
     public PagedResponse<WorkshopRegistrationRequestSummaryDto> getQueue(int page, int size, String search, String sortBy, String sortDir) {
-        syncNewRequests();
         Pageable pageable = buildPageable(page, size, sortBy, sortDir);
-        Page<WorkshopRegistrationRequest> result = workshopRegistrationRequestRepository.searchQueue(normalize(search), pageable);
+        Page<WorkshopOnboarding> result = workshopOnboardingRepository.searchQueue(normalize(search), pageable);
         return PagedResponse.from(result, this::toSummaryDto);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public PagedResponse<WorkshopRegistrationRequestSummaryDto> getAll(int page, int size, String search, String sortBy, String sortDir) {
-        syncNewRequests();
         Pageable pageable = buildPageable(page, size, sortBy, sortDir);
-        Page<WorkshopRegistrationRequest> result = workshopRegistrationRequestRepository.searchAll(normalize(search), pageable);
+        Page<WorkshopOnboarding> result = workshopOnboardingRepository.searchAll(normalize(search), pageable);
         return PagedResponse.from(result, this::toSummaryDto);
     }
 
+    @Transactional(readOnly = true)
     public WorkshopRegistrationRequestDetailDto getById(Long id) {
         return toDetailDto(getOrThrow(id));
     }
 
     @Transactional
     public void approve(Long id, Long adminId) {
-        WorkshopRegistrationRequest request = getOrThrow(id);
-        guardNotTerminal(request);
-        WorkshopRegistrationRequestStatus previous = request.getStatus();
-
-        request.setStatus(WorkshopRegistrationRequestStatus.APPROVED);
-        request.setDecidedByAdminId(adminId);
-        request.setDecidedAt(LocalDateTime.now());
-        workshopRegistrationRequestRepository.save(request);
-
-        auditLogService.record(ENTITY_TYPE, id, adminId, previous.name(), request.getStatus().name(), "APPROVE", null);
-        notifyDecision(request, NotificationType.WORKSHOP_REGISTRATION_APPROVED, "Your workshop registration has been approved.");
+        WorkshopOnboarding onboarding = decide(id, adminId, OnboardingDecision.APPROVED, null, "APPROVE");
+        notifyDecision(onboarding, NotificationType.WORKSHOP_REGISTRATION_APPROVED,
+                "Your workshop registration has been approved.");
     }
 
     @Transactional
     public void reject(Long id, Long adminId, String reason) {
-        WorkshopRegistrationRequest request = getOrThrow(id);
-        guardNotTerminal(request);
-        WorkshopRegistrationRequestStatus previous = request.getStatus();
-
-        request.setStatus(WorkshopRegistrationRequestStatus.REJECTED);
-        request.setDecisionReason(reason);
-        request.setDecidedByAdminId(adminId);
-        request.setDecidedAt(LocalDateTime.now());
-        workshopRegistrationRequestRepository.save(request);
-
-        // The one real enforcement lever available today — see class Javadoc.
-        User mechanic = request.getMechanic();
-        mechanic.setActive(false);
-        userRepository.save(mechanic);
-
-        auditLogService.record(ENTITY_TYPE, id, adminId, previous.name(), request.getStatus().name(), "REJECT", reason);
-        notifyDecision(request, NotificationType.WORKSHOP_REGISTRATION_REJECTED,
+        WorkshopOnboarding onboarding = decide(id, adminId, OnboardingDecision.REJECTED, reason, "REJECT");
+        notifyDecision(onboarding, NotificationType.WORKSHOP_REGISTRATION_REJECTED,
                 "Your workshop registration has been rejected. Reason: " + reason);
     }
 
     @Transactional
     public void requestInfo(Long id, Long adminId, String comments) {
-        WorkshopRegistrationRequest request = getOrThrow(id);
-        guardNotTerminal(request);
-        WorkshopRegistrationRequestStatus previous = request.getStatus();
-
-        request.setStatus(WorkshopRegistrationRequestStatus.ADDITIONAL_INFO_REQUESTED);
-        request.setDecisionReason(comments);
-        request.setDecidedByAdminId(adminId);
-        request.setDecidedAt(LocalDateTime.now());
-        workshopRegistrationRequestRepository.save(request);
-
-        auditLogService.record(ENTITY_TYPE, id, adminId, previous.name(), request.getStatus().name(), "REQUEST_INFO", comments);
-        notifyDecision(request, NotificationType.WORKSHOP_REGISTRATION_INFO_REQUESTED,
+        WorkshopOnboarding onboarding = decide(id, adminId, OnboardingDecision.MORE_INFO, comments, "REQUEST_INFO");
+        notifyDecision(onboarding, NotificationType.WORKSHOP_REGISTRATION_INFO_REQUESTED,
                 "Additional information is required for your workshop registration: " + comments);
     }
 
-    /**
-     * Interim workaround: there is currently no mechanic-facing resubmission
-     * endpoint anywhere (that would need to live in the sibling repo), so an
-     * Operations Admin manually confirms information was received offline
-     * and moves the request back to Pending for re-review.
-     */
-    @Transactional
-    public void markResubmitted(Long id, Long adminId) {
-        WorkshopRegistrationRequest request = getOrThrow(id);
-        if (request.getStatus() != WorkshopRegistrationRequestStatus.ADDITIONAL_INFO_REQUESTED) {
-            throw ApiException.conflict("INVALID_TRANSITION",
-                    "Only requests currently Additional Information Requested can be marked resubmitted.");
-        }
-        WorkshopRegistrationRequestStatus previous = request.getStatus();
-        request.setStatus(WorkshopRegistrationRequestStatus.PENDING);
-        workshopRegistrationRequestRepository.save(request);
-
-        auditLogService.record(ENTITY_TYPE, id, adminId, previous.name(), request.getStatus().name(), "MARK_RESUBMITTED", null);
-    }
-
-    private void syncNewRequests() {
-        List<User> mechanics = userRepository.findByRoleAndDeletedFalse(UserRole.MECHANIC);
-        Set<Long> existingMechanicIds = workshopRegistrationRequestRepository.findAllMechanicIds();
-        for (User mechanic : mechanics) {
-            if (!existingMechanicIds.contains(mechanic.getId())) {
-                workshopRegistrationRequestRepository.save(WorkshopRegistrationRequest.builder()
-                        .mechanic(mechanic)
-                        .status(WorkshopRegistrationRequestStatus.PENDING)
-                        .registeredAt(mechanic.getCreatedAt())
-                        .build());
-            }
-        }
-    }
-
-    private void guardNotTerminal(WorkshopRegistrationRequest request) {
-        if (TERMINAL_STATUSES.contains(request.getStatus())) {
+    private WorkshopOnboarding decide(Long id, Long adminId, OnboardingDecision decision, String reason, String action) {
+        WorkshopOnboarding onboarding = getOrThrow(id);
+        WorkshopProfile profile = getProfileOrThrow(onboarding);
+        WorkshopRegistrationRequestStatus previous = statusOf(onboarding, profile);
+        if (TERMINAL_STATUSES.contains(previous)) {
             throw ApiException.conflict("ALREADY_DECIDED", "This registration request has already been decided.");
         }
+
+        onboarding.setDecision(decision);
+        onboarding.setDecisionReason(reason);
+        onboarding.setDecidedAt(LocalDateTime.now());
+        workshopOnboardingRepository.save(onboarding);
+
+        profile.setStatus(switch (decision) {
+            case APPROVED -> WorkshopStatus.VERIFIED;
+            case REJECTED -> WorkshopStatus.REJECTED;
+            case MORE_INFO -> WorkshopStatus.IN_PROGRESS;
+        });
+        workshopProfileRepository.save(profile);
+
+        auditLogService.record(ENTITY_TYPE, id, adminId, previous.name(), statusOf(onboarding, profile).name(), action, reason);
+        return onboarding;
     }
 
-    private void notifyDecision(WorkshopRegistrationRequest request, NotificationType type, String message) {
-        User mechanic = request.getMechanic();
+    /** Maps the booking API's profile status onto the four statuses the admin portal shows. */
+    private WorkshopRegistrationRequestStatus statusOf(WorkshopOnboarding onboarding, WorkshopProfile profile) {
+        return switch (profile.getStatus()) {
+            case VERIFIED, SUSPENDED -> WorkshopRegistrationRequestStatus.APPROVED;
+            case REJECTED -> WorkshopRegistrationRequestStatus.REJECTED;
+            case IN_PROGRESS -> onboarding.getDecision() == OnboardingDecision.MORE_INFO
+                    ? WorkshopRegistrationRequestStatus.ADDITIONAL_INFO_REQUESTED
+                    : WorkshopRegistrationRequestStatus.PENDING;
+            case PENDING, NEW_TO_APP -> WorkshopRegistrationRequestStatus.PENDING;
+        };
+    }
+
+    private void notifyDecision(WorkshopOnboarding onboarding, NotificationType type, String message) {
+        User mechanic = onboarding.getMechanic();
         notificationRepository.save(Notification.builder()
                 .user(mechanic)
                 .title("Workshop Registration Update")
@@ -182,7 +149,7 @@ public class WorkshopRegistrationRequestService {
                 .notificationType(type)
                 .isRead(false)
                 .relatedEntityType(ENTITY_TYPE)
-                .relatedEntityId(request.getId())
+                .relatedEntityId(onboarding.getId())
                 .build());
 
         referralRepository.findFirstByReferredUserIdOrderByCreatedAtDesc(mechanic.getId())
@@ -193,19 +160,25 @@ public class WorkshopRegistrationRequestService {
                         .notificationType(type)
                         .isRead(false)
                         .relatedEntityType(ENTITY_TYPE)
-                        .relatedEntityId(request.getId())
+                        .relatedEntityId(onboarding.getId())
                         .build()));
     }
 
-    private WorkshopRegistrationRequest getOrThrow(Long id) {
-        return workshopRegistrationRequestRepository.findById(id)
+    private WorkshopOnboarding getOrThrow(Long id) {
+        return workshopOnboardingRepository.findById(id)
+                .filter(o -> Boolean.TRUE.equals(o.getSubmitted()))
                 .orElseThrow(() -> ApiException.notFound("Registration request not found."));
+    }
+
+    private WorkshopProfile getProfileOrThrow(WorkshopOnboarding onboarding) {
+        return workshopProfileRepository.findByMechanicId(onboarding.getMechanic().getId())
+                .orElseThrow(() -> ApiException.notFound("Workshop profile not found."));
     }
 
     private Pageable buildPageable(int page, int size, String sortBy, String sortDir) {
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
-        String sortField = SORT_FIELDS.contains(sortBy) ? sortBy : "id";
+        String sortField = SORT_FIELDS.getOrDefault(sortBy, "id");
         Sort.Direction direction = "desc".equalsIgnoreCase(sortDir) ? Sort.Direction.DESC : Sort.Direction.ASC;
         return PageRequest.of(safePage, safeSize, Sort.by(direction, sortField));
     }
@@ -214,29 +187,33 @@ public class WorkshopRegistrationRequestService {
         return search == null ? "" : search.trim();
     }
 
-    private WorkshopRegistrationRequestSummaryDto toSummaryDto(WorkshopRegistrationRequest request) {
-        User mechanic = request.getMechanic();
+    private WorkshopRegistrationRequestSummaryDto toSummaryDto(WorkshopOnboarding onboarding) {
+        User mechanic = onboarding.getMechanic();
         return WorkshopRegistrationRequestSummaryDto.builder()
-                .id(request.getId())
+                .id(onboarding.getId())
                 .workshopName(mechanic.getWorkshopName())
                 .ownerName(mechanic.getFirstName() + " " + mechanic.getLastName())
                 .mobileNumber(mechanic.getMobileNumber())
                 .city(mechanic.getCity())
-                .registeredAt(request.getRegisteredAt())
-                .status(request.getStatus())
+                .registeredAt(onboarding.getSubmittedAt())
+                .status(statusOf(onboarding, getProfileOrThrow(onboarding)))
                 .build();
     }
 
-    private WorkshopRegistrationRequestDetailDto toDetailDto(WorkshopRegistrationRequest request) {
-        User mechanic = request.getMechanic();
+    private WorkshopRegistrationRequestDetailDto toDetailDto(WorkshopOnboarding onboarding) {
+        User mechanic = onboarding.getMechanic();
         String referredSalesAgentName = referralRepository.findFirstByReferredUserIdOrderByCreatedAtDesc(mechanic.getId())
                 .map(referral -> referral.getSalesRep().getFirstName() + " " + referral.getSalesRep().getLastName())
                 .orElse(null);
-        String decidedByAdminName = request.getDecidedByAdminId() == null ? null
-                : adminUserRepository.findById(request.getDecidedByAdminId()).map(AdminUser::getFullName).orElse(null);
+        // The booking API's tables don't record who decided, so it comes from our own audit trail.
+        String decidedByAdminName = onboarding.getDecision() == null ? null
+                : auditLogRepository.findFirstByEntityTypeAndEntityIdOrderByCreatedAtDescIdDesc(ENTITY_TYPE, onboarding.getId())
+                        .flatMap(log -> adminUserRepository.findById(log.getPerformedByAdminId()))
+                        .map(AdminUser::getFullName)
+                        .orElse(null);
 
         return WorkshopRegistrationRequestDetailDto.builder()
-                .id(request.getId())
+                .id(onboarding.getId())
                 .workshopName(mechanic.getWorkshopName())
                 .ownerName(mechanic.getFirstName() + " " + mechanic.getLastName())
                 .mobileNumber(mechanic.getMobileNumber())
@@ -246,12 +223,12 @@ public class WorkshopRegistrationRequestService {
                 .state(mechanic.getState())
                 .postalCode(mechanic.getPostalCode())
                 .country(mechanic.getCountry())
-                .registeredAt(request.getRegisteredAt())
+                .registeredAt(onboarding.getSubmittedAt())
                 .referredSalesAgentName(referredSalesAgentName)
-                .status(request.getStatus())
-                .decisionReason(request.getDecisionReason())
+                .status(statusOf(onboarding, getProfileOrThrow(onboarding)))
+                .decisionReason(onboarding.getDecisionReason())
                 .decidedByAdminName(decidedByAdminName)
-                .decidedAt(request.getDecidedAt())
+                .decidedAt(onboarding.getDecidedAt())
                 .build();
     }
 }

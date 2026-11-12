@@ -23,4 +23,6 @@ public class WorkshopVerificationSummaryDto {
     private WorkshopVerificationType verificationType;
     private WorkshopVerificationStatus status;
     private LocalDateTime requestedAt;
+    /** False until the workshop's registration is approved; Platform Trust can't be approved before that. */
+    private Boolean listed;
 }

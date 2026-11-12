@@ -6,7 +6,6 @@ import com.alvexo.adminportal.dto.MyApiResponse;
 import com.alvexo.adminportal.dto.PagedResponse;
 import com.alvexo.adminportal.dto.WorkshopVerificationDetailDto;
 import com.alvexo.adminportal.dto.WorkshopVerificationSummaryDto;
-import com.alvexo.adminportal.entity.WorkshopVerificationType;
 import com.alvexo.adminportal.service.WorkshopVerificationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +22,9 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * ADMIN-US-06 — DoD: "Only Operations Admin and Super Admin can process
  * verification requests. Finance Admin cannot approve workshop verification."
+ *
+ * Covers the Platform Verified (Trust) request only; Listed is the onboarding
+ * approval in WorkshopRegistrationRequestController.
  */
 @RestController
 @RequestMapping("/api/workshop-verifications")
@@ -34,24 +36,22 @@ public class WorkshopVerificationController {
 
     @GetMapping("/queue")
     public MyApiResponse<PagedResponse<WorkshopVerificationSummaryDto>> getQueue(
-            @RequestParam(required = false) WorkshopVerificationType type,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "requestedAt") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDir) {
-        return MyApiResponse.success(workshopVerificationService.getQueue(type, page, size, search, sortBy, sortDir));
+        return MyApiResponse.success(workshopVerificationService.getQueue(page, size, search, sortBy, sortDir));
     }
 
     @GetMapping
     public MyApiResponse<PagedResponse<WorkshopVerificationSummaryDto>> getAll(
-            @RequestParam(required = false) WorkshopVerificationType type,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "requestedAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
-        return MyApiResponse.success(workshopVerificationService.getAll(type, page, size, search, sortBy, sortDir));
+        return MyApiResponse.success(workshopVerificationService.getAll(page, size, search, sortBy, sortDir));
     }
 
     @GetMapping("/{id}")
@@ -77,11 +77,5 @@ public class WorkshopVerificationController {
                                             @AuthenticationPrincipal AdminPrincipal principal) {
         workshopVerificationService.requestInfo(id, principal.id(), request.getReason());
         return MyApiResponse.success(null, "Additional information requested.");
-    }
-
-    @PostMapping("/{id}/mark-resubmitted")
-    public MyApiResponse<Void> markResubmitted(@PathVariable Long id, @AuthenticationPrincipal AdminPrincipal principal) {
-        workshopVerificationService.markResubmitted(id, principal.id());
-        return MyApiResponse.success(null, "Marked as resubmitted.");
     }
 }
