@@ -33,9 +33,10 @@ public class UserController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "ALL") String status,
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDir) {
-        return MyApiResponse.success(userService.getMechanics(page, size, search, sortBy, sortDir));
+        return MyApiResponse.success(userService.getMechanics(page, size, search, status, sortBy, sortDir));
     }
 
     @GetMapping("/mechanics/{id}/summary")
@@ -48,9 +49,10 @@ public class UserController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "ALL") String status,
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDir) {
-        return MyApiResponse.success(userService.getVehicleUsers(page, size, search, sortBy, sortDir));
+        return MyApiResponse.success(userService.getVehicleUsers(page, size, search, status, sortBy, sortDir));
     }
 
     @GetMapping("/sales-agents")
@@ -58,8 +60,9 @@ public class UserController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "ALL") String status,
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDir) {
-        return MyApiResponse.success(userService.getSalesAgents(page, size, search, sortBy, sortDir));
+        return MyApiResponse.success(userService.getSalesAgents(page, size, search, status, sortBy, sortDir));
     }
 }

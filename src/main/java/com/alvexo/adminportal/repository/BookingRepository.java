@@ -15,6 +15,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     long countByMechanicIdAndStatus(Long mechanicId, BookingStatus status);
 
+    long countByMechanicIdAndStatusIn(Long mechanicId, Collection<BookingStatus> statuses);
+
+    long countByVehicleUserIdAndStatusIn(Long vehicleUserId, Collection<BookingStatus> statuses);
+
     @Query("SELECT COUNT(b) FROM Booking b WHERE b.mechanic.id = :mechanicId " +
             "AND b.status IN :statuses AND b.scheduledDateTime >= :from")
     long countUpcomingByMechanicId(@Param("mechanicId") Long mechanicId,

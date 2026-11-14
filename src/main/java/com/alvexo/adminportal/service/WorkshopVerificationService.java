@@ -230,9 +230,7 @@ public class WorkshopVerificationService {
     }
 
     private String accountStatus(User user) {
-        if (Boolean.TRUE.equals(user.getDeleted())) return "DELETED";
-        if (!Boolean.TRUE.equals(user.getActive())) return "SUSPENDED";
-        return "ACTIVE";
+        return com.alvexo.adminportal.entity.AccountStatus.of(user).name();
     }
 
     private WorkshopVerificationSummaryDto toSummaryDto(User mechanic) {
