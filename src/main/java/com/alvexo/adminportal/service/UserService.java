@@ -17,6 +17,7 @@ import com.alvexo.adminportal.repository.MechanicConfigurationSettingsRepository
 import com.alvexo.adminportal.repository.ReferralRepository;
 import com.alvexo.adminportal.repository.SettlementRepository;
 import com.alvexo.adminportal.repository.UserRepository;
+import com.alvexo.adminportal.repository.UserVehicleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -60,6 +61,7 @@ public class UserService {
     private final ReferralRepository referralRepository;
     private final BookingRepository bookingRepository;
     private final SettlementRepository settlementRepository;
+    private final UserVehicleRepository userVehicleRepository;
 
     public PagedResponse<MechanicSummaryDto> getMechanics(int page, int size, String search, String status, String sortBy, String sortDir) {
         Pageable pageable = buildPageable(page, size, sortBy, sortDir, MECHANIC_SORT_FIELDS);
@@ -77,7 +79,17 @@ public class UserService {
     public PagedResponse<VehicleUserSummaryDto> getVehicleUsers(int page, int size, String search, String status, String sortBy, String sortDir) {
         Pageable pageable = buildPageable(page, size, sortBy, sortDir, VEHICLE_USER_SORT_FIELDS);
         Page<User> result = userRepository.searchVehicleUsers(UserRole.VEHICLE_USER, normalize(search), normalizeStatus(status), pageable);
-        return PagedResponse.from(result, this::toVehicleUserSummaryDto);
+
+        List<Long> riderIds = result.getContent().stream().map(User::getId).toList();
+        Map<Long, Long> vehicleCounts = riderIds.isEmpty() ? Map.of() : toCountMap(userVehicleRepository.countByUserIds(riderIds));
+        Map<Long, Long> bookingCounts = riderIds.isEmpty() ? Map.of() : toCountMap(bookingRepository.countByVehicleUserIds(riderIds));
+
+        return PagedResponse.from(result, user -> {
+            VehicleUserSummaryDto dto = toVehicleUserSummaryDto(user);
+            dto.setVehicleCount(vehicleCounts.getOrDefault(user.getId(), 0L));
+            dto.setTotalBookings(bookingCounts.getOrDefault(user.getId(), 0L));
+            return dto;
+        });
     }
 
     public PagedResponse<SalesAgentSummaryDto> getSalesAgents(int page, int size, String search, String status, String sortBy, String sortDir) {
@@ -136,6 +148,15 @@ public class UserService {
         String sortField = allowedSortFields.contains(sortBy) ? sortBy : "id";
         Sort.Direction direction = "desc".equalsIgnoreCase(sortDir) ? Sort.Direction.DESC : Sort.Direction.ASC;
         return PageRequest.of(safePage, safeSize, Sort.by(direction, sortField));
+    }
+
+    /** [id, count] rows from a GROUP BY query, as a map. */
+    private static Map<Long, Long> toCountMap(List<Object[]> rows) {
+        Map<Long, Long> counts = new HashMap<>();
+        for (Object[] row : rows) {
+            counts.put((Long) row[0], (Long) row[1]);
+        }
+        return counts;
     }
 
     /** Unknown or blank status values fall back to ALL rather than erroring. */
