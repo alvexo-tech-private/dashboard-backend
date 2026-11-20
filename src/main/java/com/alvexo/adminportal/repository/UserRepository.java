@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -78,4 +79,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     long countByRoleAndActiveFalseAndDeletedFalse(UserRole role);
 
     List<User> findByRoleAndDeletedFalse(UserRole role);
+
+    /**
+     * Rows of [day (LocalDate), role, count] for accounts created in [start, end), deleted ones
+     * included — the registration still happened (new registrations report).
+     */
+    @Query("SELECT CAST(u.createdAt AS LocalDate), u.role, COUNT(u) FROM User u " +
+            "WHERE u.createdAt >= :start AND u.createdAt < :end " +
+            "GROUP BY CAST(u.createdAt AS LocalDate), u.role")
+    List<Object[]> registrationsByDayAndRole(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }
