@@ -2,10 +2,10 @@ package com.alvexo.adminportal.service;
 
 import com.alvexo.adminportal.dto.DashboardSummaryDto;
 import com.alvexo.adminportal.entity.UserRole;
-import com.alvexo.adminportal.entity.WorkshopVerificationStatus;
-import com.alvexo.adminportal.entity.WorkshopVerificationType;
+import com.alvexo.adminportal.entity.WorkshopStatus;
 import com.alvexo.adminportal.repository.MechanicConfigurationSettingsRepository;
 import com.alvexo.adminportal.repository.UserRepository;
+import com.alvexo.adminportal.repository.WorkshopProfileRepository;
 import com.alvexo.adminportal.repository.WorkshopVerificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +16,7 @@ public class DashboardService {
 
     private final UserRepository userRepository;
     private final MechanicConfigurationSettingsRepository mechanicConfigurationSettingsRepository;
+    private final WorkshopProfileRepository workshopProfileRepository;
     private final WorkshopVerificationRepository workshopVerificationRepository;
 
     public DashboardSummaryDto getSummary() {
@@ -25,10 +26,9 @@ public class DashboardService {
                 .registeredWorkshops(userRepository.countByRoleAndDeletedFalse(UserRole.MECHANIC))
                 .deletedWorkshops(userRepository.countByRoleAndDeletedTrue(UserRole.MECHANIC))
                 .suspendedWorkshops(userRepository.countByRoleAndActiveFalseAndDeletedFalse(UserRole.MECHANIC))
-                .listedWorkshops(workshopVerificationRepository.countByVerificationTypeAndStatus(
-                        WorkshopVerificationType.LISTED, WorkshopVerificationStatus.APPROVED))
-                .platformTrustedWorkshops(workshopVerificationRepository.countByVerificationTypeAndStatus(
-                        WorkshopVerificationType.TRUST, WorkshopVerificationStatus.APPROVED))
+                // Listed = onboarding approved (Self Listed) and not paused, same as the booking API's gate.
+                .listedWorkshops(workshopProfileRepository.countByStatusAndSuspendedFalse(WorkshopStatus.VERIFIED))
+                .platformTrustedWorkshops(workshopVerificationRepository.countByVerifiedTrue())
                 .pickupDropEnabledWorkshops(mechanicConfigurationSettingsRepository.countPickupDropEnabledForActiveMechanics())
                 .advancePaymentEnabledWorkshops(mechanicConfigurationSettingsRepository.countAdvancePaymentEnabledForActiveMechanics())
                 .registeredSalesAgents(userRepository.countByRoleAndDeletedFalse(UserRole.SALES_REPRESENTATIVE))

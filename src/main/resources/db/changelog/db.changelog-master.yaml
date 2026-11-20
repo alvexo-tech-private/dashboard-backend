@@ -6,8 +6,6 @@ databaseChangeLog:
   - include:
       file: db/changelog/changes/003-create-audit-log.yaml
   - include:
-      file: db/changelog/changes/004-create-workshop-registration-requests.yaml
-  - include:
-      file: db/changelog/changes/005-create-admin-workshop-verifications.yaml
-  - include:
       file: db/changelog/changes/006-revert-dashboard-columns-on-workshop-verifications.yaml
+  - include:
+      file: db/changelog/changes/007-drop-dashboard-workshop-tables.yaml

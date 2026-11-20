@@ -71,10 +71,4 @@ public class WorkshopRegistrationRequestController {
         workshopRegistrationRequestService.requestInfo(id, principal.id(), request.getReason());
         return MyApiResponse.success(null, "Additional information requested.");
     }
-
-    @PostMapping("/{id}/mark-resubmitted")
-    public MyApiResponse<Void> markResubmitted(@PathVariable Long id, @AuthenticationPrincipal AdminPrincipal principal) {
-        workshopRegistrationRequestService.markResubmitted(id, principal.id());
-        return MyApiResponse.success(null, "Marked as resubmitted.");
-    }
 }

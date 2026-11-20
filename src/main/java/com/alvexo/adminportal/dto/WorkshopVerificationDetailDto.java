@@ -1,5 +1,6 @@
 package com.alvexo.adminportal.dto;
 
+import com.alvexo.adminportal.entity.VerificationMethod;
 import com.alvexo.adminportal.entity.WorkshopVerificationStatus;
 import com.alvexo.adminportal.entity.WorkshopVerificationType;
 import lombok.AllArgsConstructor;
@@ -9,6 +10,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Set;
 
 /**
  * ADMIN-US-06 verification detail — AC-03 "selecting a request displays the
@@ -39,6 +41,10 @@ public class WorkshopVerificationDetailDto {
     private WorkshopVerificationType verificationType;
     private WorkshopVerificationStatus status;
     private LocalDateTime requestedAt;
+    /** False until the workshop's registration is approved; Platform Trust can't be approved before that. */
+    private Boolean listed;
+    /** Verification methods the workshop submitted from the app (business licence, GST, bank statement). */
+    private Set<VerificationMethod> completedMethods;
 
     // Qualification information (BR-05/BR-08) available today.
     private LocalDateTime registeredAt;

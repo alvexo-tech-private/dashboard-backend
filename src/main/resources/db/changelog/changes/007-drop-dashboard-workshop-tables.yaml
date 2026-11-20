@@ -1,0 +1,29 @@
+databaseChangeLog:
+  # The workshop registration / verification queues now read and write the
+  # booking API's own workshop_onboardings, workshop_profiles and
+  # workshop_verifications tables, so the dashboard's private tracking tables
+  # are dropped wherever an earlier version of this service created them.
+
+  - changeSet:
+      id: 007-drop-admin-workshop-verifications
+      author: system
+      preConditions:
+        - onFail: MARK_RAN
+        - tableExists:
+            tableName: admin_workshop_verifications
+      changes:
+        - dropTable:
+            tableName: admin_workshop_verifications
+            cascadeConstraints: true
+
+  - changeSet:
+      id: 007-drop-workshop-registration-requests
+      author: system
+      preConditions:
+        - onFail: MARK_RAN
+        - tableExists:
+            tableName: workshop_registration_requests
+      changes:
+        - dropTable:
+            tableName: workshop_registration_requests
+            cascadeConstraints: true

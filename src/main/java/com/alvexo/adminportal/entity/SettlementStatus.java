@@ -1,8 +1,16 @@
 package com.alvexo.adminportal.entity;
 
-/** Settlement lifecycle: Pending -> Processing -> Paid. */
+/**
+ * Workshop payout status of one booking's settlement — mirrors
+ * com.alvexo.bookingapp.model.SettlementStatus:
+ * AWAITING_PAYOUT -> PROCESSING -> PAID | FAILED; FAILED -> PROCESSING (retry);
+ * any open state -> ON_HOLD -> AWAITING_PAYOUT. NO_SETTLEMENT_REQUIRED is final.
+ */
 public enum SettlementStatus {
-    PENDING,
+    AWAITING_PAYOUT,
     PROCESSING,
-    PAID
+    PAID,
+    FAILED,
+    ON_HOLD,
+    NO_SETTLEMENT_REQUIRED
 }
