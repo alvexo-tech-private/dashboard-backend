@@ -4,8 +4,10 @@ import com.alvexo.adminportal.entity.Booking;
 import com.alvexo.adminportal.entity.BookingStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -13,7 +15,41 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
-public interface BookingRepository extends JpaRepository<Booking, Long> {
+public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpecificationExecutor<Booking> {
+
+    /** Bookings report rows, with rider and workshop fetched in the same query. */
+    @Override
+    @EntityGraph(attributePaths = {"vehicleUser", "mechanic"})
+    Page<Booking> findAll(Specification<Booking> spec, Pageable pageable);
+
+    // ---- Dashboard Booking Summary (ADMIN-US-01 BR-14/15) ----
+
+    @Query("SELECT COUNT(b) FROM Booking b WHERE b.scheduledDateTime >= :start AND b.scheduledDateTime < :end " +
+            "AND b.status NOT IN :excluded")
+    long countScheduledBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end,
+                               @Param("excluded") Collection<BookingStatus> excluded);
+
+    @Query("SELECT COUNT(b) FROM Booking b WHERE b.status = com.alvexo.adminportal.entity.BookingStatus.CANCELLED " +
+            "AND b.cancelledAt >= :start AND b.cancelledAt < :end")
+    long countCancelledBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // ---- Workshop performance report ----
+
+    /**
+     * Rows of [mechanicId, total, completed, cancelled, rejected, completedValue] for bookings
+     * scheduled in [start, end), busiest workshop first.
+     */
+    @Query(value = "SELECT b.mechanic.id, COUNT(b), " +
+            "SUM(CASE WHEN b.status = com.alvexo.adminportal.entity.BookingStatus.COMPLETED THEN 1 ELSE 0 END), " +
+            "SUM(CASE WHEN b.status = com.alvexo.adminportal.entity.BookingStatus.CANCELLED THEN 1 ELSE 0 END), " +
+            "SUM(CASE WHEN b.status = com.alvexo.adminportal.entity.BookingStatus.REJECTED THEN 1 ELSE 0 END), " +
+            "SUM(CASE WHEN b.status = com.alvexo.adminportal.entity.BookingStatus.COMPLETED THEN b.actualCost END) " +
+            "FROM Booking b WHERE b.scheduledDateTime >= :start AND b.scheduledDateTime < :end " +
+            "GROUP BY b.mechanic.id ORDER BY COUNT(b) DESC, b.mechanic.id",
+            countQuery = "SELECT COUNT(DISTINCT b.mechanic.id) FROM Booking b " +
+                    "WHERE b.scheduledDateTime >= :start AND b.scheduledDateTime < :end")
+    Page<Object[]> workshopPerformance(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end,
+                                       Pageable pageable);
 
     long countByMechanicId(Long mechanicId);
 
