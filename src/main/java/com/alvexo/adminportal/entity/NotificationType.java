@@ -17,6 +17,11 @@ public enum NotificationType {
     WORKSHOP_VERIFICATION_INFO_REQUESTED,
     GENERAL,
 
+    // Account lifecycle actions taken from the Admin Portal.
+    ACCOUNT_SUSPENDED,
+    ACCOUNT_RESTORED,
+    ACCOUNT_DELETED,
+
     // Values below exist in vehicle-service-booking-api's NotificationType.
     NEW_BOOKING,
     BOOKING_UPDATED,

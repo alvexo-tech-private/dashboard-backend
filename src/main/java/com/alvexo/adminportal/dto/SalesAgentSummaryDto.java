@@ -28,5 +28,7 @@ public class SalesAgentSummaryDto {
     private Integer totalReferrals;
     private BigDecimal totalBonusEarned;
     private Boolean active;
+    /** ACTIVE / SUSPENDED / DELETED, see AccountStatus. */
+    private String accountStatus;
     private LocalDateTime createdAt;
 }

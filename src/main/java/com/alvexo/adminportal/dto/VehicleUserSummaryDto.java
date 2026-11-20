@@ -27,5 +27,9 @@ public class VehicleUserSummaryDto {
     private Boolean emailVerified;
     private Boolean mobileVerified;
     private Boolean active;
+    /** ACTIVE / SUSPENDED / DELETED, see AccountStatus. */
+    private String accountStatus;
     private LocalDateTime createdAt;
+    private long vehicleCount;
+    private long totalBookings;
 }
