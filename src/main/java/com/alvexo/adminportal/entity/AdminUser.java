@@ -43,6 +43,10 @@ public class AdminUser {
     @Column(nullable = false, length = 20)
     private AdminUserStatus status;
 
+    /** Set when a Super Admin creates the account or resets its password; cleared by the admin's own password change. */
+    @Column(name = "must_change_password", nullable = false)
+    private boolean mustChangePassword;
+
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 

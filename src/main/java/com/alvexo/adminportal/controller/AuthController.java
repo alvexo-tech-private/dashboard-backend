@@ -1,6 +1,7 @@
 package com.alvexo.adminportal.controller;
 
 import com.alvexo.adminportal.config.AdminPrincipal;
+import com.alvexo.adminportal.dto.AdminUserSummaryDto;
 import com.alvexo.adminportal.dto.ChangePasswordRequestDto;
 import com.alvexo.adminportal.dto.LoginRequestDto;
 import com.alvexo.adminportal.dto.LoginResponseDto;
@@ -9,6 +10,7 @@ import com.alvexo.adminportal.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,6 +26,11 @@ public class AuthController {
     @PostMapping("/login")
     public MyApiResponse<LoginResponseDto> login(@Valid @RequestBody LoginRequestDto request) {
         return MyApiResponse.success(authService.login(request.getEmail(), request.getPassword()));
+    }
+
+    @GetMapping("/me")
+    public MyApiResponse<AdminUserSummaryDto> me(@AuthenticationPrincipal AdminPrincipal principal) {
+        return MyApiResponse.success(authService.me(principal.id()));
     }
 
     // Authenticated for any admin role — required token comes from
