@@ -16,4 +16,6 @@ public class AdminUserSummaryDto {
     private String email;
     private String fullName;
     private AdminRole role;
+    /** The portal sends the admin to Account Settings, and the API refuses other calls, until this is false. */
+    private boolean mustChangePassword;
 }

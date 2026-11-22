@@ -9,6 +9,7 @@ import com.alvexo.adminportal.repository.AdminUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -43,15 +44,19 @@ public class AuthService {
                 .accessToken(token)
                 .tokenType("Bearer")
                 .expiresIn(jwtService.getAccessTokenExpirationSeconds())
-                .adminUser(AdminUserSummaryDto.builder()
-                        .id(admin.getId())
-                        .email(admin.getEmail())
-                        .fullName(admin.getFullName())
-                        .role(admin.getRole())
-                        .build())
+                .adminUser(toSummary(admin))
                 .build();
     }
 
+    /** The signed-in admin's current profile, so the portal picks up role changes without a new sign-in. */
+    public AdminUserSummaryDto me(Long adminId) {
+        AdminUser admin = adminUserRepository.findById(adminId)
+                .orElseThrow(() -> ApiException.unauthorized(INVALID_CREDENTIALS_MESSAGE));
+        return toSummary(admin);
+    }
+
+    // One transaction: the new password and its audit row are saved together or not at all.
+    @Transactional
     public void changePassword(Long adminId, String currentPassword, String newPassword) {
         AdminUser admin = adminUserRepository.findById(adminId)
                 .orElseThrow(() -> ApiException.unauthorized(INVALID_CREDENTIALS_MESSAGE));
@@ -59,11 +64,25 @@ public class AuthService {
         if (!passwordEncoder.matches(currentPassword, admin.getPasswordHash())) {
             throw ApiException.badRequest(INVALID_CURRENT_PASSWORD_MESSAGE);
         }
+        if (passwordEncoder.matches(newPassword, admin.getPasswordHash())) {
+            throw ApiException.badRequest("Choose a new password that is different from the current one.");
+        }
 
         admin.setPasswordHash(passwordEncoder.encode(newPassword));
+        admin.setMustChangePassword(false);
         adminUserRepository.save(admin);
 
-        auditLogService.record("AdminUser", admin.getId(), admin.getId(), null, null,
+        auditLogService.record(AdminUserService.ENTITY_TYPE, admin.getId(), admin.getId(), null, null,
                 "PASSWORD_CHANGED", "Self-service password change.");
+    }
+
+    private static AdminUserSummaryDto toSummary(AdminUser admin) {
+        return AdminUserSummaryDto.builder()
+                .id(admin.getId())
+                .email(admin.getEmail())
+                .fullName(admin.getFullName())
+                .role(admin.getRole())
+                .mustChangePassword(admin.isMustChangePassword())
+                .build();
     }
 }

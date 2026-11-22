@@ -9,3 +9,5 @@ databaseChangeLog:
       file: db/changelog/changes/006-revert-dashboard-columns-on-workshop-verifications.yaml
   - include:
       file: db/changelog/changes/007-drop-dashboard-workshop-tables.yaml
+  - include:
+      file: db/changelog/changes/008-admin-users-must-change-password.yaml
