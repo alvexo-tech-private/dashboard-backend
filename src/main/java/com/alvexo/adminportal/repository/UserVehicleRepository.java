@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface UserVehicleRepository extends JpaRepository<UserVehicle, Long> {
 
@@ -17,4 +18,6 @@ public interface UserVehicleRepository extends JpaRepository<UserVehicle, Long> 
     /** Rows of [userId, vehicleCount] for the rider directory's "Vehicles" column. */
     @Query("SELECT uv.user.id, COUNT(uv) FROM UserVehicle uv WHERE uv.user.id IN :userIds GROUP BY uv.user.id")
     List<Object[]> countByUserIds(@Param("userIds") Collection<Long> userIds);
+
+    Optional<UserVehicle> findFirstByUserIdAndVehicleId(Long userId, Long vehicleId);
 }

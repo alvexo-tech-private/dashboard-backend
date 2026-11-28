@@ -63,6 +63,22 @@ public class Payment {
     @Column(name = "payment_date")
     private LocalDateTime paymentDate;
 
+    /** Advance part of a booking payment (null on legacy rows, where amount was the advance). */
+    @Column(name = "advance_amount", precision = 10, scale = 2)
+    private BigDecimal advanceAmount;
+
+    /** Rider platform fee part of a booking payment. */
+    @Column(name = "platform_fee_amount", precision = 10, scale = 2)
+    private BigDecimal platformFeeAmount;
+
+    /** Cashfree's payment id (cf_payment_id); transactionId holds the Cashfree order id. */
+    @Column(name = "gateway_payment_id", length = 64)
+    private String gatewayPaymentId;
+
+    /** Cashfree's fee for the payment, once reconciled. */
+    @Column(name = "gateway_charges", precision = 10, scale = 2)
+    private BigDecimal gatewayCharges;
+
     @Column(name = "failure_reason", columnDefinition = "TEXT")
     private String failureReason;
 

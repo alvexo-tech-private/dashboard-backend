@@ -1,5 +1,6 @@
 package com.alvexo.adminportal.repository;
 
+import com.alvexo.adminportal.entity.PayoutBatch;
 import com.alvexo.adminportal.entity.Settlement;
 import com.alvexo.adminportal.entity.SettlementStatus;
 import org.springframework.data.domain.Page;
@@ -13,6 +14,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface SettlementRepository extends JpaRepository<Settlement, Long>, JpaSpecificationExecutor<Settlement> {
@@ -35,4 +37,23 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long>, J
     /** Dashboard BR-17: workshops paid out on the given day. */
     @Query("SELECT COUNT(DISTINCT s.mechanic.id) FROM Settlement s WHERE s.status = :status AND s.payoutDate = :day")
     long countWorkshopsPaidOn(@Param("status") SettlementStatus status, @Param("day") LocalDate day);
+
+    /** A batch's bookings, with booking and rider fetched. */
+    @Query("SELECT s FROM Settlement s JOIN FETCH s.booking b JOIN FETCH b.vehicleUser WHERE s.batch = :batch ORDER BY s.id")
+    List<Settlement> findByBatch(@Param("batch") PayoutBatch batch);
+
+    Optional<Settlement> findByBookingId(Long bookingId);
+
+    /** Finance overview: settlements of the bookings in a list. */
+    @Query("SELECT s FROM Settlement s JOIN FETCH s.booking b WHERE b.id IN :bookingIds")
+    List<Settlement> findByBookingIds(@Param("bookingIds") Collection<Long> bookingIds);
+
+    /** Finance overview "Workshop payable": settlements by settlement date. */
+    @Query("SELECT s FROM Settlement s WHERE s.settlementDate BETWEEN :from AND :to")
+    List<Settlement> findBySettlementDateBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    /** Finance overview "Settled": paid settlements by payout date. */
+    @Query("SELECT s FROM Settlement s WHERE s.status = com.alvexo.adminportal.entity.SettlementStatus.PAID "
+            + "AND s.payoutDate BETWEEN :from AND :to")
+    List<Settlement> findPaidBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
 }

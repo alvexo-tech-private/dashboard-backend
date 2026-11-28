@@ -42,6 +42,12 @@ public class DashboardSummaryDto {
     private long workshopsPendingSettlement;
     /** BR-17: workshops whose settlement was paid out today. */
     private long workshopsSettledToday;
+    /** Finance summary: rider payments captured through Cashfree today (₹, advance + platform fee). */
+    private java.math.BigDecimal paymentsToday;
+    /** Finance summary: number of those payments. */
+    private long paymentCountToday;
+    /** Finance summary: refunds completed by Cashfree today (₹). */
+    private java.math.BigDecimal refundsToday;
     /** BR-19: workshop support requests that are open or in progress. */
     private long openSupportRequests;
 }

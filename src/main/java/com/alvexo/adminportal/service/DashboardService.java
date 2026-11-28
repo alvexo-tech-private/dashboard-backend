@@ -2,12 +2,16 @@ package com.alvexo.adminportal.service;
 
 import com.alvexo.adminportal.dto.DashboardSummaryDto;
 import com.alvexo.adminportal.entity.BookingStatus;
+import com.alvexo.adminportal.entity.Payment;
+import com.alvexo.adminportal.entity.Refund;
 import com.alvexo.adminportal.entity.SettlementStatus;
 import com.alvexo.adminportal.entity.SupportRequestStatus;
 import com.alvexo.adminportal.entity.UserRole;
 import com.alvexo.adminportal.entity.WorkshopStatus;
 import com.alvexo.adminportal.repository.BookingRepository;
 import com.alvexo.adminportal.repository.MechanicConfigurationSettingsRepository;
+import com.alvexo.adminportal.repository.PaymentRepository;
+import com.alvexo.adminportal.repository.RefundRepository;
 import com.alvexo.adminportal.repository.SettlementRepository;
 import com.alvexo.adminportal.repository.UserRepository;
 import com.alvexo.adminportal.repository.WorkshopProfileRepository;
@@ -38,12 +42,18 @@ public class DashboardService {
     private final BookingRepository bookingRepository;
     private final SettlementRepository settlementRepository;
     private final WorkshopSupportRequestRepository workshopSupportRequestRepository;
+    private final PaymentRepository paymentRepository;
+    private final RefundRepository refundRepository;
     private final Clock clock;
 
     public DashboardSummaryDto getSummary() {
         LocalDate today = LocalDate.now(clock);
         LocalDateTime start = today.atStartOfDay();
         LocalDateTime end = today.plusDays(1).atStartOfDay();
+        List<Payment> paymentsToday = paymentRepository.findCapturedBetween(FinanceService.CAPTURED, start, end);
+        java.math.BigDecimal refundsToday = refundRepository.findCompletedBetween(start, end).stream()
+                .map(Refund::getTotalAmount).filter(java.util.Objects::nonNull)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
         return DashboardSummaryDto.builder()
                 .registeredRiders(userRepository.countByRoleAndDeletedFalse(UserRole.VEHICLE_USER))
                 .deletedRiders(userRepository.countByRoleAndDeletedTrue(UserRole.VEHICLE_USER))
@@ -62,6 +72,10 @@ public class DashboardService {
                 .bookingsCancelledToday(bookingRepository.countCancelledBetween(start, end))
                 .workshopsPendingSettlement(settlementRepository.countWorkshopsWithSettlementDueBy(UNPAID, today))
                 .workshopsSettledToday(settlementRepository.countWorkshopsPaidOn(SettlementStatus.PAID, today))
+                .paymentsToday(paymentsToday.stream().map(Payment::getAmount).filter(java.util.Objects::nonNull)
+                        .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add))
+                .paymentCountToday(paymentsToday.size())
+                .refundsToday(refundsToday)
                 .openSupportRequests(workshopSupportRequestRepository.countByStatusIn(OPEN_SUPPORT))
                 .build();
     }
