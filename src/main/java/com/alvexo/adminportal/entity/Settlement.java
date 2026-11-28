@@ -81,6 +81,11 @@ public class Settlement {
     @Column(name = "hold_reason")
     private String holdReason;
 
+    /** The day-wise payout batch this settlement is paid in; null until its holding period ends. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "batch_id")
+    private PayoutBatch batch;
+
     @Column(name = "created_at", updatable = false, insertable = false)
     private LocalDateTime createdAt;
 

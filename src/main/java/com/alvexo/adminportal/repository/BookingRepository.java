@@ -100,4 +100,24 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
 
     @EntityGraph(attributePaths = {"vehicleUser", "mechanic", "vehicle"})
     Page<Booking> findByMechanicIdAndStatus(Long mechanicId, BookingStatus status, Pageable pageable);
+
+    /** Booking Financial Breakdown: by BYK Booking ID (e.g. 1888-TN-0017). */
+    @Query("SELECT b FROM Booking b JOIN FETCH b.mechanic JOIN FETCH b.vehicleUser WHERE b.bookingNumber = :number")
+    List<Booking> findByBookingNumberWithParties(@Param("number") String bookingNumber);
+
+    @Query("SELECT b FROM Booking b JOIN FETCH b.mechanic JOIN FETCH b.vehicleUser WHERE b.id = :id")
+    java.util.Optional<Booking> findByIdWithParties(@Param("id") Long id);
+
+    /**
+     * Finance dashboard "No payment" rows: real bookings (not unpaid attempts) created in [start, end) that have no
+     * captured Cashfree booking payment — same-day and pickup bookings (₹0 advance) and walk-ins.
+     */
+    @Query("SELECT b FROM Booking b JOIN FETCH b.mechanic JOIN FETCH b.vehicleUser WHERE b.createdAt >= :start "
+            + "AND b.createdAt < :end AND b.status IN :statuses AND NOT EXISTS (SELECT p.id FROM Payment p "
+            + "WHERE p.booking = b AND p.paymentType = com.alvexo.adminportal.entity.PaymentType.BOOKING_PAYMENT "
+            + "AND p.status IN :captured) ORDER BY b.createdAt DESC")
+    List<Booking> findWithoutPaymentBetween(@Param("start") java.time.LocalDateTime start,
+                                            @Param("end") java.time.LocalDateTime end,
+                                            @Param("statuses") java.util.Collection<com.alvexo.adminportal.entity.BookingStatus> statuses,
+                                            @Param("captured") java.util.Collection<com.alvexo.adminportal.entity.PaymentStatus> captured);
 }

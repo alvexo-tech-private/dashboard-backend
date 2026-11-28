@@ -14,8 +14,13 @@ public interface MechanicConfigurationSettingsRepository extends JpaRepository<M
             "WHERE s.pickupDropFacilityEnabled = true AND s.mechanic.deleted = false")
     long countPickupDropEnabledForActiveMechanics();
 
-    @Query("SELECT COUNT(s) FROM MechanicConfigurationSettings s " +
-            "WHERE s.repairsRequireAdvance = true AND s.mechanic.deleted = false")
+    /**
+     * Workshops (not deleted) whose booking advance is switched on — the same switch the app uses to ask riders for
+     * an advance (mechanic_settings.advance_enabled, "Booking Advance" in workshop Settings). It used to count
+     * repairs_require_advance, a separate repairs-only flag, which showed 0 for workshops that do take an advance.
+     */
+    @Query(value = "SELECT COUNT(*) FROM mechanic_settings ms JOIN users u ON u.id = ms.mechanic_id "
+            + "WHERE ms.advance_enabled = true AND u.deleted = false", nativeQuery = true)
     long countAdvancePaymentEnabledForActiveMechanics();
 
     Optional<MechanicConfigurationSettings> findByMechanicId(Long mechanicId);
